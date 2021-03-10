@@ -261,7 +261,7 @@ if not needed and play nicely when building incrementally.
 ****************************************************************************************************
 NuGetPack: Creates a nuget package.  
 **************************************************************************************************** -->
-  <Target Name="NuGetPack" DependsOnTargets="GenerateNuSpecFile" Condition="'$(OutputsOutdated)' == 'true'">
+  <Target Name="NuGetPack" DependsOnTargets="GenerateNuSpecFile" Condition="'$(OutputsOutdated)' == 'true' and 'true' == 'false'">
     <ItemGroup>
       <!-- Normalize comman-separated property string (removes new lines and trims string)-->
       <NuSpecProperties Include="$(NuSpecProperties)" />

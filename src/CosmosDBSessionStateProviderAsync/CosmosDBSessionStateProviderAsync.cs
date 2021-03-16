@@ -672,7 +672,7 @@ namespace Microsoft.AspNet.SessionState
             SerializeStoreData(item, out encodedBuf, s_compressionEnabled);
 
             var timeoutInSecs = 60 * timeout;
-            await CreateSessionStateItemAsync(id, timeoutInSecs, encodedBuf, true);
+            await CreateSessionStateItemAsync(id, timeoutInSecs, encodedBuf, true).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -702,7 +702,7 @@ namespace Microsoft.AspNet.SessionState
         {
             var spName = exclusive ? GetStateItemExclusiveSPID : GetStateItemSPID;
             var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, spName);
-            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<SessionStateItem>(spLink, CreateRequestOptions(id), id);
+            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<SessionStateItem>(spLink, CreateRequestOptions(id), id).ConfigureAwait(false);
 
             CheckSPResponseAndThrowIfNeeded(spResponse);
 
@@ -739,7 +739,7 @@ namespace Microsoft.AspNet.SessionState
         {
             var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, ReleaseItemExclusiveSPID);
 
-            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id), id, (int)lockId);
+            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id), id, (int)lockId).ConfigureAwait(false);
 
             CheckSPResponseAndThrowIfNeeded(spResponse);
         }
@@ -753,7 +753,7 @@ namespace Microsoft.AspNet.SessionState
             CancellationToken cancellationToken)
         {
             var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, RemoveStateItemSPID);
-            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id), id, (int)lockId);
+            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id), id, (int)lockId).ConfigureAwait(false);
 
             CheckSPResponseAndThrowIfNeeded(spResponse);
         }
@@ -762,7 +762,7 @@ namespace Microsoft.AspNet.SessionState
         public override async Task ResetItemTimeoutAsync(HttpContextBase context, string id, CancellationToken cancellationToken)
         {
             var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, ResetItemTimeoutSPID);
-            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id), id);
+            var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id), id).ConfigureAwait(false);
 
             CheckSPResponseAndThrowIfNeeded(spResponse);
         }
@@ -796,7 +796,7 @@ namespace Microsoft.AspNet.SessionState
             {
                 if (!newItem)
                 {
-                    await ReleaseItemExclusiveAsync(context, id, lockId, cancellationToken);
+                    await ReleaseItemExclusiveAsync(context, id, lockId, cancellationToken).ConfigureAwait(false);
                 }
                 throw;
             }
@@ -804,7 +804,7 @@ namespace Microsoft.AspNet.SessionState
 
             if (newItem)
             {
-                await CreateSessionStateItemAsync(id, s_timeout, encodedBuf, false);
+                await CreateSessionStateItemAsync(id, s_timeout, encodedBuf, false).ConfigureAwait(false);
             }
             else
             {
@@ -812,7 +812,8 @@ namespace Microsoft.AspNet.SessionState
                 var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(id),
                     //sessionId, lockCookie, timeout, sessionItem
                     // SessionStateStoreData.Timeout is in minutes, TTL in DocumentDB is in seconds
-                    id, lockCookie, 60 * item.Timeout, encodedBuf);
+                    id, lockCookie, 60 * item.Timeout, encodedBuf)
+                    .ConfigureAwait(false);
 
                 CheckSPResponseAndThrowIfNeeded(spResponse);
             }
@@ -1003,13 +1004,13 @@ namespace Microsoft.AspNet.SessionState
         {
             try
             {
-                await s_client.ReadDatabaseAsync(UriFactory.CreateDatabaseUri(s_dbId));
+                await s_client.ReadDatabaseAsync(UriFactory.CreateDatabaseUri(s_dbId)).ConfigureAwait(false);
             }
             catch (DocumentClientException e)
             {
                 if (e.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    await s_client.CreateDatabaseAsync(new Database { Id = s_dbId });
+                    await s_client.CreateDatabaseAsync(new Database { Id = s_dbId }).ConfigureAwait(false);
                 }
                 else
                 {
@@ -1022,7 +1023,7 @@ namespace Microsoft.AspNet.SessionState
         {
             try
             {
-                DocumentCollection dc = await s_client.ReadDocumentCollectionAsync(DocumentCollectionUri);
+                DocumentCollection dc = await s_client.ReadDocumentCollectionAsync(DocumentCollectionUri).ConfigureAwait(false);
 
                 // If we're using the updated partition strategy (see comment below) but we haven't updated our indexing policy - do that now.
                 if (PartitionEnabled && (s_partitionNumUsedBySessionProvider < 0))
@@ -1037,7 +1038,7 @@ namespace Microsoft.AspNet.SessionState
                     if (!containsWildcard)
                     {
                         dc.IndexingPolicy = s_indexNone;
-                        await s_client.ReplaceDocumentCollectionAsync(DocumentCollectionUri, dc, new RequestOptions { OfferThroughput = s_offerThroughput });
+                        await s_client.ReplaceDocumentCollectionAsync(DocumentCollectionUri, dc, new RequestOptions { OfferThroughput = s_offerThroughput }).ConfigureAwait(false);
                     }
                 }
             }
@@ -1064,7 +1065,8 @@ namespace Microsoft.AspNet.SessionState
                     await s_client.CreateDocumentCollectionAsync(
                         UriFactory.CreateDatabaseUri(s_dbId),
                         docCollection,
-                        new RequestOptions { OfferThroughput = s_offerThroughput });
+                        new RequestOptions { OfferThroughput = s_offerThroughput })
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -1083,18 +1085,18 @@ namespace Microsoft.AspNet.SessionState
         {
             if (!PartitionEnabled)
             {
-                await CreateSPIfNotExistsAsync(CreateSessionStateItemSPID, CreateSessionStateItemSP);
+                await CreateSPIfNotExistsAsync(CreateSessionStateItemSPID, CreateSessionStateItemSP).ConfigureAwait(false);
             }
             else
             {
-                await CreateSPIfNotExistsAsync(CreateSessionStateItemInPartitionSPID, CreateSessionStateItemInPartitionSP);
+                await CreateSPIfNotExistsAsync(CreateSessionStateItemInPartitionSPID, CreateSessionStateItemInPartitionSP).ConfigureAwait(false);
             }
-            await CreateSPIfNotExistsAsync(GetStateItemSPID, GetStateItemSP);
-            await CreateSPIfNotExistsAsync(GetStateItemExclusiveSPID, GetStateItemExclusiveSP);
-            await CreateSPIfNotExistsAsync(ReleaseItemExclusiveSPID, ReleaseItemExclusiveSP);
-            await CreateSPIfNotExistsAsync(RemoveStateItemSPID, RemoveStateItemSP);
-            await CreateSPIfNotExistsAsync(ResetItemTimeoutSPID, ResetItemTimeoutSP);
-            await CreateSPIfNotExistsAsync(UpdateSessionStateItemSPID, UpdateSessionStateItemSP);
+            await CreateSPIfNotExistsAsync(GetStateItemSPID, GetStateItemSP).ConfigureAwait(false);
+            await CreateSPIfNotExistsAsync(GetStateItemExclusiveSPID, GetStateItemExclusiveSP).ConfigureAwait(false);
+            await CreateSPIfNotExistsAsync(ReleaseItemExclusiveSPID, ReleaseItemExclusiveSP).ConfigureAwait(false);
+            await CreateSPIfNotExistsAsync(RemoveStateItemSPID, RemoveStateItemSP).ConfigureAwait(false);
+            await CreateSPIfNotExistsAsync(ResetItemTimeoutSPID, ResetItemTimeoutSP).ConfigureAwait(false);
+            await CreateSPIfNotExistsAsync(UpdateSessionStateItemSPID, UpdateSessionStateItemSP).ConfigureAwait(false);
         }
 
         private static async Task CreateSPIfNotExistsAsync(string spId, string spBody)
@@ -1102,7 +1104,7 @@ namespace Microsoft.AspNet.SessionState
             try
             {
                 var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, spId);
-                await s_client.ReadStoredProcedureAsync(spLink);
+                await s_client.ReadStoredProcedureAsync(spLink).ConfigureAwait(false);
             }
             catch (DocumentClientException e)
             {
@@ -1112,7 +1114,7 @@ namespace Microsoft.AspNet.SessionState
                     sp.Id = spId;
                     sp.Body = spBody;
 
-                    await s_client.CreateStoredProcedureAsync(DocumentCollectionUri, sp);
+                    await s_client.CreateStoredProcedureAsync(DocumentCollectionUri, sp).ConfigureAwait(false);
                 }
                 else
                 {
@@ -1128,7 +1130,7 @@ namespace Microsoft.AspNet.SessionState
         {
             try
             {
-                return await s_client.ExecuteStoredProcedureAsync<TValue>(spLink, requestOptions, spParams);
+                return await s_client.ExecuteStoredProcedureAsync<TValue>(spLink, requestOptions, spParams).ConfigureAwait(false);
             }
             catch (DocumentClientException dce)
             {
@@ -1163,7 +1165,8 @@ namespace Microsoft.AspNet.SessionState
                 var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, CreateSessionStateItemInPartitionSPID);
                 var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(sessionid),
                     // sessionId, partitionValue, timeout, lockCookie, sessionItem, uninitialized
-                    sessionid, CreatePartitionValue(sessionid), timeoutInSec, DefaultLockCookie, encodedSsItems, uninitialized);
+                    sessionid, CreatePartitionValue(sessionid), timeoutInSec, DefaultLockCookie, encodedSsItems, uninitialized)
+                    .ConfigureAwait(false);
 
                 CheckSPResponseAndThrowIfNeeded(spResponse);
             }
@@ -1172,7 +1175,8 @@ namespace Microsoft.AspNet.SessionState
                 var spLink = UriFactory.CreateStoredProcedureUri(s_dbId, s_collectionId, CreateSessionStateItemSPID);
                 var spResponse = await ExecuteStoredProcedureWithWrapperAsync<object>(spLink, CreateRequestOptions(sessionid),
                     // sessionId, timeout, lockCookie, sessionItem, uninitialized
-                    sessionid, timeoutInSec, DefaultLockCookie, encodedSsItems, uninitialized);
+                    sessionid, timeoutInSec, DefaultLockCookie, encodedSsItems, uninitialized)
+                    .ConfigureAwait(false);
 
                 CheckSPResponseAndThrowIfNeeded(spResponse);
             }

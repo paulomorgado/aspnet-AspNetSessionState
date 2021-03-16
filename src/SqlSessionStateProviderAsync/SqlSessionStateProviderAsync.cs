@@ -203,7 +203,7 @@ namespace Microsoft.AspNet.SessionState
                         timeout);
 
             SerializeStoreData(item, SqlSessionStateRepositoryUtil.DefaultItemLength, out buf, out length, s_compressionEnabled);
-            await s_sqlSessionStateRepository.CreateUninitializedSessionItemAsync(id, length, buf, timeout);
+            await s_sqlSessionStateRepository.CreateUninitializedSessionItemAsync(id, length, buf, timeout).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -257,7 +257,7 @@ namespace Microsoft.AspNet.SessionState
 
             id = AppendAppIdHash(id);
 
-            await s_sqlSessionStateRepository.ReleaseSessionItemAsync(id, lockId);
+            await s_sqlSessionStateRepository.ReleaseSessionItemAsync(id, lockId).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -279,7 +279,7 @@ namespace Microsoft.AspNet.SessionState
 
             id = AppendAppIdHash(id);
 
-            await s_sqlSessionStateRepository.RemoveSessionItemAsync(id, lockId);
+            await s_sqlSessionStateRepository.RemoveSessionItemAsync(id, lockId).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -299,7 +299,7 @@ namespace Microsoft.AspNet.SessionState
 
             id = AppendAppIdHash(id);
 
-            await s_sqlSessionStateRepository.ResetSessionItemTimeoutAsync(id);
+            await s_sqlSessionStateRepository.ResetSessionItemTimeoutAsync(id).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -337,14 +337,14 @@ namespace Microsoft.AspNet.SessionState
             {
                 if(!newItem)
                 {
-                    await ReleaseItemExclusiveAsync(context, id, lockId, cancellationToken);
+                    await ReleaseItemExclusiveAsync(context, id, lockId, cancellationToken).ConfigureAwait(false);
                 }
                 throw;
             }
 
             lockCookie = lockId == null ? 0 : (int)lockId;
 
-            await s_sqlSessionStateRepository.CreateOrUpdateSessionStateItemAsync(newItem, id, buf, length, item.Timeout, lockCookie, _rqOrigStreamLen);
+            await s_sqlSessionStateRepository.CreateOrUpdateSessionStateItemAsync(newItem, id, buf, length, item.Timeout, lockCookie, _rqOrigStreamLen).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -362,7 +362,7 @@ namespace Microsoft.AspNet.SessionState
             id = AppendAppIdHash(id);
             
             SessionStateStoreData data = null;
-            var sessionItem = await s_sqlSessionStateRepository.GetSessionStateItemAsync(id, exclusive);
+            var sessionItem = await s_sqlSessionStateRepository.GetSessionStateItemAsync(id, exclusive).ConfigureAwait(false);
 
             if(sessionItem == null)
             {

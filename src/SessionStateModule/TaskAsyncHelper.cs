@@ -6,6 +6,7 @@ namespace Microsoft.AspNet.SessionState
     using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using System.Web;
 
     static class TaskAsyncHelper
     {
@@ -49,7 +50,7 @@ namespace Microsoft.AspNet.SessionState
                 }
                 else
                 {
-                    task.ContinueWith(_ => callback(resultToReturn));
+                    task.ContinueWith(_ => callback(resultToReturn), TaskContinuationOptions.ExecuteSynchronously);
                 }
             }
 
@@ -78,11 +79,6 @@ namespace Microsoft.AspNet.SessionState
             // 2. If the Task encountered an exception, observe it here.
             // (TaskAwaiter.GetResult() handles both of those, and it rethrows the original exception rather than an AggregateException.)
             taskWrapper.Task.GetAwaiter().GetResult();
-        }
-
-        public static void RunAsyncMethodSynchronously(Func<Task> func)
-        {
-            CompletedTask.ContinueWith(_ => func(), TaskScheduler.Default).Unwrap().Wait();
         }
     }
 

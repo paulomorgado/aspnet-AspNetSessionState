@@ -167,7 +167,21 @@ namespace Microsoft.AspNet.SessionState
         public void ReleaseSessionState(HttpContext context)
         {
             // Release session state before executing child request
-            TaskAsyncHelper.RunAsyncMethodSynchronously(() => ReleaseSessionStateAsync(context));
+            if (_acquireCalled && !_releaseCalled && _rqSessionState != null)
+            {
+                var synchronizationContext = SynchronizationContext.Current;
+
+                try
+                {
+                    SynchronizationContext.SetSynchronizationContext(null);
+
+                    ReleaseStateAsync(context.ApplicationInstance).GetAwaiter().GetResult();
+                }
+                finally
+                {
+                    SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -413,7 +427,7 @@ namespace Microsoft.AspNet.SessionState
                     // Still need to update the sliding timeout to keep session alive.
                     // There is a plan to skip this for perf reason.  But it was postponed to
                     // after Whidbey.
-                    await _store.ResetItemTimeoutAsync(_rqContext, _rqId, GetCancellationToken());
+                    await _store.ResetItemTimeoutAsync(_rqContext, _rqId, GetCancellationToken()).ConfigureAwait(false);
                 }
 
                 SessionEventSource.Log.SessionDataEnd(context);
@@ -431,7 +445,7 @@ namespace Microsoft.AspNet.SessionState
             if (_rqId != null)
             {
                 /* get the session state corresponding to this session id */
-                await GetSessionStateItemAsync();
+                await GetSessionStateItemAsync().ConfigureAwait(false);
             }
             else
             {
@@ -445,7 +459,7 @@ namespace Microsoft.AspNet.SessionState
                     if (s_configRegenerateExpiredSessionId)
                     {
                         // See inline comments in CreateUninitializedSessionState()
-                        await _store.CreateUninitializedItemAsync(_rqContext, _rqId, s_timeout, GetCancellationToken());
+                        await _store.CreateUninitializedItemAsync(_rqContext, _rqId, s_timeout, GetCancellationToken()).ConfigureAwait(false);
                     }
 
                     SessionEventSource.Log.SessionDataEnd(context);
@@ -453,7 +467,7 @@ namespace Microsoft.AspNet.SessionState
                 }
             }
 
-            await CompleteAcquireStateAsync(context);
+            await CompleteAcquireStateAsync(context).ConfigureAwait(false);
         }
 
         private bool SessionIdManagerUseCookieless
@@ -493,8 +507,24 @@ namespace Microsoft.AspNet.SessionState
                 return;
             }
 
-            _rqContext.Response.AddOnSendingHeaders(
-                _ => TaskAsyncHelper.RunAsyncMethodSynchronously(EnsureStateStoreItemLockedAsync));
+            _rqContext.Response.AddOnSendingHeaders(_ =>
+                {
+                    if (_acquireCalled && !_releaseCalled && _rqSessionState != null)
+                    {
+                        var synchronizationContext = SynchronizationContext.Current;
+
+                        try
+                        {
+                            SynchronizationContext.SetSynchronizationContext(null);
+
+                            EnsureStateStoreItemLockedAsync().GetAwaiter().GetResult();
+                        }
+                        finally
+                        {
+                            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+                        }
+                    }
+                });
         }
 
         private async Task EnsureStateStoreItemLockedAsync()
@@ -519,10 +549,10 @@ namespace Microsoft.AspNet.SessionState
                 throw new InvalidOperationException("_rqId == null");
 
             // Store the item if already have been created
-            await _store.SetAndReleaseItemExclusiveAsync(_rqContext, _rqId, _rqItem, _rqLockId, true/*_rqSessionStateNotFound*/, GetCancellationToken());
+            await _store.SetAndReleaseItemExclusiveAsync(_rqContext, _rqId, _rqItem, _rqLockId, true/*_rqSessionStateNotFound*/, GetCancellationToken()).ConfigureAwait(false);
 
             // Lock Session State Item in Session State Store
-            await LockSessionStateItemAsync();
+            await LockSessionStateItemAsync().ConfigureAwait(false);
 
 
             // Mark as old session here. The SessionState is fully initialized, the item is locked
@@ -564,7 +594,7 @@ namespace Microsoft.AspNet.SessionState
 
                         if (redirected)
                         {
-                            await _store.CreateUninitializedItemAsync(_rqContext, _rqId, s_timeout, GetCancellationToken());
+                            await _store.CreateUninitializedItemAsync(_rqContext, _rqId, s_timeout, GetCancellationToken()).ConfigureAwait(false);
                         }
                     }
                 }
@@ -577,7 +607,7 @@ namespace Microsoft.AspNet.SessionState
                 }
 
                 // lock free session doesn't need this
-                if(!AppSettings.AllowConcurrentRequestsPerSession)
+                if (!AppSettings.AllowConcurrentRequestsPerSession)
                 {
                     RegisterEnsureStateStoreItemLocked();
                 }
@@ -630,7 +660,7 @@ namespace Microsoft.AspNet.SessionState
 
             if (!_rqReadonly)
             {
-                GetItemResult result = await _store.GetItemExclusiveAsync(_rqContext, _rqId, GetCancellationToken());
+                GetItemResult result = await _store.GetItemExclusiveAsync(_rqContext, _rqId, GetCancellationToken()).ConfigureAwait(false);
                 SessionStateStoreData storedItem;
                 bool locked;
                 TimeSpan lockAge;
@@ -659,7 +689,7 @@ namespace Microsoft.AspNet.SessionState
 
                     if (_rqReadonly || AppSettings.AllowConcurrentRequestsPerSession)
                     {
-                        GetItemResult result = await _store.GetItemAsync(_rqContext, _rqId, GetCancellationToken());
+                        GetItemResult result = await _store.GetItemAsync(_rqContext, _rqId, GetCancellationToken()).ConfigureAwait(false);
                         if (result != null)
                         {
                             ExtractValuesFromGetItemResult(result, out _rqItem, out locked, out lockAge, out _rqLockId,
@@ -668,7 +698,7 @@ namespace Microsoft.AspNet.SessionState
                     }
                     else
                     {
-                        GetItemResult result = await _store.GetItemExclusiveAsync(_rqContext, _rqId, GetCancellationToken());
+                        GetItemResult result = await _store.GetItemExclusiveAsync(_rqContext, _rqId, GetCancellationToken()).ConfigureAwait(false);
                         if (result != null)
                         {
                             ExtractValuesFromGetItemResult(result, out _rqItem, out locked, out lockAge, out _rqLockId,
@@ -683,10 +713,10 @@ namespace Microsoft.AspNet.SessionState
                         {
                             if (!(ConfigCookieless == HttpCookieMode.UseUri && s_configRegenerateExpiredSessionId))
                             {
-                                await _store.CreateUninitializedItemAsync(_rqContext, _rqId, s_timeout, GetCancellationToken());
+                                await _store.CreateUninitializedItemAsync(_rqContext, _rqId, s_timeout, GetCancellationToken()).ConfigureAwait(false);
 
                                 GetItemResult getItemResult =
-                                    await _store.GetItemExclusiveAsync(_rqContext, _rqId, GetCancellationToken());
+                                    await _store.GetItemExclusiveAsync(_rqContext, _rqId, GetCancellationToken()).ConfigureAwait(false);
 
                                 if (getItemResult != null)
                                 {
@@ -709,7 +739,7 @@ namespace Microsoft.AspNet.SessionState
                         if (lockAge >= _rqExecutionTimeout)
                         {
                             /* Release the lock on the item, which is held by another thread*/
-                            await _store.ReleaseItemExclusiveAsync(_rqContext, _rqId, _rqLockId, GetCancellationToken());
+                            await _store.ReleaseItemExclusiveAsync(_rqContext, _rqId, _rqLockId, GetCancellationToken()).ConfigureAwait(false);
                         }
 
                         isCompleted = false;
@@ -717,7 +747,7 @@ namespace Microsoft.AspNet.SessionState
 
                     if (!isCompleted)
                     {
-                        await Task.Delay(s_pollingTimespan);
+                        await Task.Delay(s_pollingTimespan).ConfigureAwait(false);
                     }
                 }
             }
@@ -853,7 +883,7 @@ namespace Microsoft.AspNet.SessionState
                     Debug.Assert(_rqItem != null, "_rqItem cannot null if it's not a new session");
 
                     // Remove it from the store because the session is abandoned.
-                    await _store.RemoveItemAsync(_rqContext, _rqId, _rqLockId, _rqItem, GetCancellationToken());
+                    await _store.RemoveItemAsync(_rqContext, _rqId, _rqLockId, _rqItem, GetCancellationToken()).ConfigureAwait(false);
                 }
             }
             else if (!_rqReadonly ||
@@ -879,7 +909,8 @@ namespace Microsoft.AspNet.SessionState
 
                     setItemCalled = true;
                     await _store.SetAndReleaseItemExclusiveAsync(_rqContext, _rqId, _rqItem,
-                            _rqLockId, _rqSessionStateNotFound, GetCancellationToken());
+                            _rqLockId, _rqSessionStateNotFound, GetCancellationToken())
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -888,7 +919,8 @@ namespace Microsoft.AspNet.SessionState
                     {
                         Debug.Assert(_rqItem != null, "_rqItem cannot null if it's not a new session");
                         await _store.ReleaseItemExclusiveAsync(_rqContext, _rqId, _rqLockId,
-                                GetCancellationToken());
+                                GetCancellationToken())
+                            .ConfigureAwait(false);
                     }
                 }
             }
@@ -934,7 +966,7 @@ namespace Microsoft.AspNet.SessionState
                         /*
                          * need to do release here if the request short-circuited due to an error
                          */
-                        await ReleaseStateAsync(app);
+                        await ReleaseStateAsync(app).ConfigureAwait(false);
                     }
                     else
                     {
@@ -956,13 +988,13 @@ namespace Microsoft.AspNet.SessionState
                         string id = _idManager.GetSessionID(context);
                         if (id != null)
                         {
-                            await _store.ResetItemTimeoutAsync(_rqContext, id, GetCancellationToken());
+                            await _store.ResetItemTimeoutAsync(_rqContext, id, GetCancellationToken()).ConfigureAwait(false);
                         }
                     }
                 }
 
                 /* Notify the store we are finishing a request */
-                await _store.EndRequestAsync(_rqContext);
+                await _store.EndRequestAsync(_rqContext).ConfigureAwait(false);
             }
             finally
             {

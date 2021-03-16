@@ -70,9 +70,9 @@ namespace Microsoft.AspNet.SessionState
             {
                 try
                 {
-                    await OpenConnectionAsync(connection);
+                    await OpenConnectionAsync(connection).ConfigureAwait(false);
 
-                    return await sqlCmd.ExecuteNonQueryAsync();
+                    return await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
                 }
                 catch (SqlException e)
                 {
@@ -102,9 +102,9 @@ namespace Microsoft.AspNet.SessionState
             {
                 try
                 {
-                    await OpenConnectionAsync(connection);
+                    await OpenConnectionAsync(connection).ConfigureAwait(false);
 
-                    return await sqlCmd.ExecuteReaderAsync(cmdBehavior);
+                    return await sqlCmd.ExecuteReaderAsync(cmdBehavior).ConfigureAwait(false);
                 }
                 catch (SqlException e)
                 {
@@ -138,7 +138,7 @@ namespace Microsoft.AspNet.SessionState
             {
                 if (sqlConnection.State != ConnectionState.Open)
                 {
-                    await sqlConnection.OpenAsync();
+                    await sqlConnection.OpenAsync().ConfigureAwait(false);
                 }
             }
             catch (SqlException e)

@@ -375,11 +375,11 @@ namespace Microsoft.AspNet.SessionState
 
             using (var connection = new SqlConnection(_connectString))
             {
-                using (var reader = await SqlSessionStateRepositoryUtil.SqlExecuteReaderWithRetryAsync(connection, cmd, CanRetry))
+                using (var reader = await SqlSessionStateRepositoryUtil.SqlExecuteReaderWithRetryAsync(connection, cmd, CanRetry).ConfigureAwait(false))
                 {
-                    if (await reader.ReadAsync())
+                    if (await reader.ReadAsync().ConfigureAwait(false))
                     {
-                        buf = await reader.GetFieldValueAsync<byte[]>(0);
+                        buf = await reader.GetFieldValueAsync<byte[]>(0).ConfigureAwait(false);
                     }
                 }
 
@@ -427,7 +427,7 @@ namespace Microsoft.AspNet.SessionState
 
             using (var connection = new SqlConnection(_connectString))
             {
-                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry, newItem);
+                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry, newItem).ConfigureAwait(false);
             }
         }
 
@@ -436,7 +436,7 @@ namespace Microsoft.AspNet.SessionState
             var cmd = _commandHelper.CreateResetItemTimeoutCmd(ResetItemTimeoutSql, id);
             using (var connection = new SqlConnection(_connectString))
             {
-                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry);
+                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry).ConfigureAwait(false);
             }
         }
 
@@ -445,7 +445,7 @@ namespace Microsoft.AspNet.SessionState
             var cmd = _commandHelper.CreateRemoveStateItemCmd(RemoveStateItemSql, id, lockId);
             using (var connection = new SqlConnection(_connectString))
             {
-                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry);
+                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry).ConfigureAwait(false);
             }
         }
 
@@ -454,7 +454,7 @@ namespace Microsoft.AspNet.SessionState
             var cmd = _commandHelper.CreateReleaseItemExclusiveCmd(ReleaseItemExclusiveSql, id, lockId);
             using (var connection = new SqlConnection(_connectString))
             {
-                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry);
+                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry).ConfigureAwait(false);
             }
         }
 
@@ -463,7 +463,7 @@ namespace Microsoft.AspNet.SessionState
             var cmd = _commandHelper.CreateTempInsertUninitializedItemCmd(TempInsertUninitializedItemSql, id, length, buf, timeout);
             using (var connection = new SqlConnection(_connectString))
             {
-                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry, true);
+                await SqlSessionStateRepositoryUtil.SqlExecuteNonQueryWithRetryAsync(connection, cmd, CanRetry, true).ConfigureAwait(false);
             }
         }
         #endregion
